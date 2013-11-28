@@ -8,6 +8,7 @@ This wraps the cURL calls available from API manager with simple calls.
 
 Here is a sample of usage
 
+'''php
 $wso2api = new Wso2API("http://10.118.8.73:9763");
 
 
@@ -35,3 +36,4 @@ $create_api_resources = array (array('resourceMethod'=>'GET',
 							         'resourceMethodThrottlingTier'=>'Unlimited',
 							         'uriTemplate'=>'/*'));
 $ret = $wso2api->create_api($create_api_post, $create_api_resources, $autopublish = true);
+'''
