@@ -18,10 +18,12 @@ class Wso2API{
 	private $login_path = '/publisher/site/blocks/user/login/ajax/login.jag';
 	private $create_api_path = '/publisher/site/blocks/item-add/ajax/add.jag';
 	private $status_api_path = '/publisher/site/blocks/life-cycles/ajax/life-cycles.jag';
+	private $debug = false;
 
 	public $error_message = '';
+	public $error_code = 0;
 
-	function __construct($api_server, $user = 'admin', $password = 'admin'){
+	function __construct($api_server, $user = 'admin', $password = 'admin', $debug = false){
 		$headers[] = "Accept: */*";
 		$headers[] = "Connection: Keep-Alive";
 		$agent            = "Nokia-Communicator-WWW-Browser/2.0 (Geos 3.0 Nokia-9000i)";
@@ -38,41 +40,56 @@ class Wso2API{
 		$this->api_server = $api_server;
 		$this->api_user = $user;
 		$this->api_password = $password;
+		$this->debug = $debug;
 		$this->curl =  new cURL($api_server);
 		$this->curl->options($this->curl_options);
-		echo ('construct');
 	}
 	
 	public function login($user = '', $password = ''){
+		if ($this->debug) error_log(print_r('user: '.$user, TRUE)); 
+		if ($this->debug) error_log(print_r('password: '.$password, TRUE)); 
 		if(!empty($user)) $this->api_user = $user;
 		if(!empty($password)) $this->api_password = $password;
 		$login_url = $this->api_server . $this->login_path;
+		$login_post = array('action'=>'login',
+							'username'=>$this->api_user,
+							'password'=>$this->api_password);
 		$login_ret = $this->curl->post($login_url, 
-										array('action'=>'login',
-											  'username'=>$this->api_user,
-											  'password'=>$this->api_password),
+										$login_post,
 										$this->curl_options);
 		// two possible errors cURL and API manager
 		if ($this->curl->error_code){
-			$this->error_message = 'Login: '.$this->curl->error_string . ' - ' . $login_url . ' - ' . print_r(array('action'=>'login',
-											  'username'=>$this->api_user,
-											  'password'=>$this->api_password),true);
-			echo print_r($this->curl->info,true);
-			echo print_r($this->curl->error_code,true);
+			$this->error_message = 'Login: '.$this->curl->error_string . ' - ' . $login_url . ' - ' . print_r($login_post,true);
+			$this->error_code = $this->curl->error_code;
 		}else{
 			// have to interpret the return code to understand if the API returned error
+			$response = json_decode($login_ret);
+			if ($response->{'error'}){
+				$this->error_message = $response->{'message'};
+				echo 'error in login';
+				return false;
+			}
 			$this->isLoggedIn = true;
 		}
-		return $this->curl->error_code;
+		$this->error_code = $this->curl->error_code;
+		return true;
 	}
 	
 	public function create_api($params, $resources, $autopublish = false){
 		// if not logged in log with the standard data
 		if(!$this->isLoggedIn){
 			$login_result = $this->login();
-			if ($login_result > 0){
+			if (!$login_result){
 				return $login_result;
 			}
+		}
+		if (empty($params['name'])){
+			$this->error_message = 'You have to define API name';
+			return false;
+		}
+		if (empty($params['version'])){
+			$this->error_message = 'You have to define API version';
+			return false;
 		}
 		if (!is_array($resources)){
 			$this->error_message = 'You have to define API resources';
@@ -85,16 +102,16 @@ class Wso2API{
 							  'name'=>$params['name'],
 							  'visibility'=>$params['visibility'],
 							  'version'=>$params['version'],
-							  'description'=>$params['description'],
+							  'description'=>(empty($params['description'])?'':$params['description']),
 							  'endpointType'=>$params['endpointType'],
-							  'http_checked'=>($params['http']?'http':''),
-							  'https_checked'=>($params['https']?'https':''),
-							  'endpoint'=>$params['endpoint'],
-							  'wsdl'=>$params['wsdl'],
-							  'wadl'=>$params['wadl'],
-							  'tags'=>$params['tags'],
+							  'http_checked'=>(empty($params['http'])?'':'http'),
+							  'https_checked'=>(empty($params['https'])?'':'https'),
+							  'endpoint'=>(empty($params['endpoint'])?'':$params['endpoint']),
+							  'wsdl'=>(empty($params['wsdl'])?'':$params['wsdl']),
+							  'wadl'=>(empty($params['wadl'])?'':$params['wadl']),
+							  'tags'=>(empty($params['tags'])?'':$params['tags']),
 							  'tier'=>$params['tier'],
-							  'bizOwner'=>$params['bizOwner'],
+							  'bizOwner'=>(empty($params['bizOwner'])?'':$params['bizOwner']),
 							  'thumbUrl'=>$params['thumbUrl'],
 							  'context'=>$params['context'],
 							  'tiersCollection'=>$params['tiersCollection']);
@@ -105,23 +122,20 @@ class Wso2API{
 			$create_api_post['resourceMethodThrottlingTier-'.$i] = $value['resourceMethodThrottlingTier'];
 			$create_api_post['uriTemplate-'.$i] = $value['uriTemplate'];
 		}
-						  /*
-							  'resourceCount'=>'0',
-							  'resourceMethod-0'=>'GET',
-							  'resourceMethodAuthType-0'=>'Application',
-							  'resourceMethodThrottlingTier-0'=>'Unlimited',
-							  'uriTemplate-0'=>'/*');
-						  */
 		$create_api_ret = $this->curl->post($create_api_url, 
 											$create_api_post,
 											$this->curl_options);
 
 		// two possible errors cURL and API manager
 		if ($this->curl->error_code){
-			$this->error_message = 'Create API: '.$this->curl->error_string;
+			$this->error_message = 'Create API: '.$this->curl->error_string . ' - ' . $create_api_url . ' - ' . print_r($create_api_post,true);
 		}else{
 			// have to interpret the return code to understand if the API returned error
-			$this->isLoggedIn = true;
+			$response = json_decode($create_api_ret);
+			if ($response->{'error'}){
+				$this->error_message = $response->{'message'};
+				return false;
+			}
 		}
 		
 		// manage the autopublish option
@@ -168,8 +182,13 @@ class Wso2API{
 			$this->error_message = 'Status change: '.$this->curl->error_string;
 		}else{
 			// have to interpret the return code to understand if the API returned error
-			$this->isLoggedIn = true;
+			$response = json_decode($publish_api_ret);
+			if ($response->{'error'}){
+				$this->error_message = $response->{'message'};
+				return false;
+			}
 		}
+		return true;
 	}
 	
 	
