@@ -18,10 +18,17 @@ class Wso2API{
 	private $login_path = '/publisher/site/blocks/user/login/ajax/login.jag';
 	private $create_api_path = '/publisher/site/blocks/item-add/ajax/add.jag';
 	private $status_api_path = '/publisher/site/blocks/life-cycles/ajax/life-cycles.jag';
+	private $get_api_url = '/publisher/site/blocks/listing/ajax/item-list.jag';
+	private $get_all_api_url = '/publisher/site/blocks/listing/ajax/item-list.jag';
+	private $get_api_swagger_url1 = '/registry/resource/_system/governance/apimgt/applicationdata/api-docs/';
+	private $get_api_swagger_url2 = '/api-doc.json';
+
+
 	private $debug = false;
 
 	public $error_message = '';
 	public $error_code = 0;
+	public $response = null;
 
 	function __construct($api_server, $user = 'admin', $password = 'admin', $debug = false){
 		$headers[] = "Accept: */*";
@@ -43,6 +50,9 @@ class Wso2API{
 		$this->debug = $debug;
 		$this->curl =  new cURL($api_server);
 		$this->curl->options($this->curl_options);
+		
+		
+		
 	}
 	
 	public function login($user = '', $password = ''){
@@ -64,12 +74,15 @@ class Wso2API{
 		}else{
 			// have to interpret the return code to understand if the API returned error
 			$response = json_decode($login_ret);
+			if ($this->debug) error_log('login response: '.print_r($response, TRUE));
+			if (!empty($response)){
 			if ($response->{'error'}){
 				$this->error_message = $response->{'message'};
 				echo 'error in login';
 				return false;
 			}
 			$this->isLoggedIn = true;
+			}
 		}
 		$this->error_code = $this->curl->error_code;
 		return true;
@@ -191,8 +204,101 @@ class Wso2API{
 		return true;
 	}
 	
+	public function get_api_info($apiprovider, $apiname, $apiversion, $publishtogataway){
+
+	
+			$get_api_url = $this->api_server . $this->get_api_url;
+
+	$call_api_post = array('action'  => "getAPI",
+              'name' => $apiname,
+              'version' => $apiversion,
+			  'provider' => $apiprovider);
+
+	
+		$published_api_ret = $this->curl->post($status_api_url, 
+											 $call_api_post,
+											 $this->curl_options);
+		
+		// two possible errors cURL and API manager
+		if ($this->curl->error_code){
+			$this->error_message = 'Get API info: '.$this->curl->error_string;
+		}else{
+			// have to interpret the return code to understand if the API returned error
+			$response = json_decode($published_api_ret);
+			if ($response->{'error'}){
+				$this->error_message = $response->{'message'};
+				return false;
+			}
+		}
+		return true;
+	
+	}	
+
+ 
+	public function get_all_api_list(){
+		// if not logged in log with the standard data
+		if(!$this->isLoggedIn){
+			$login_result = $this->login();
+			if (!$login_result){
+				return $login_result;
+			}
+		}
+
+		$get_api_url = $this->api_server . $this->get_all_api_url . '?action=getAllAPIs';
+		$call_api_post = array('action'  => "getAllAPIs",);
+		if ($this->debug) error_log('get_api_url: '.print_r($get_api_url, TRUE)); 
+		$published_api_list_ret = $this->curl->get($get_api_url, 
+											 $this->curl_options);
+
+		// two possible errors cURL and API manager
+		if ($this->curl->error_code){
+			$this->error_message = 'Get all API list: '.$this->curl->error_string;
+		}else{
+			// have to interpret the return code to understand if the API returned error
+			$this->response = json_decode($published_api_list_ret);
+			if ($this->debug) error_log('Get all APi list response: : '.print_r($this->response, TRUE)); 
+			if (!empty($this->response)){
+				if (!empty($this->response->{'error'})){
+					$this->error_message = $this->response->{'message'};
+					return false;
+				}
+			}
+		}
+		return true;
+	}	
 	
 	
+	public function get_api_swagger($apiname, $apiversion){
+		// if not logged in log with the standard data
+		if(!$this->isLoggedIn){
+			$login_result = $this->login();
+			if (!$login_result){
+				return $login_result;
+			}
+		}
+
+		$get_swagger_url = $this->api_server . $this->get_api_swagger_url1 .$apiname . '-' .$apiversion . $this->get_api_swagger_url2;
+	
+		$swagger_api_ret = $this->curl->get($get_swagger_url, 
+											 $this->curl_options);
+		if ($this->debug) error_log('get_api_swagger_url: '.print_r($get_swagger_url, TRUE)); 
+		if ($this->debug) error_log('get_api_swagger: '.print_r($swagger_api_ret, TRUE)); 
+		// two possible errors cURL and API manager
+		if ($this->curl->error_code){
+			$this->error_message = 'Get all API list: '.$this->curl->error_string;
+		}else{
+			// have to interpret the return code to understand if the API returned error
+			$this->response = json_decode($swagger_api_ret);
+			if ($this->debug) error_log('Get all APi list response: : '.print_r($this->response, TRUE)); 
+			if (!empty($this->response)){
+				if (!empty($this->response->{'error'})){
+					$this->error_message = $this->response->{'message'};
+					return false;
+				}
+			}
+		}
+		return true;
+	}	
 
 }
 
