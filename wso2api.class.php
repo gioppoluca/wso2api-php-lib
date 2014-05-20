@@ -204,18 +204,25 @@ class Wso2API{
 		return true;
 	}
 	
-	public function get_api_info($apiprovider, $apiname, $apiversion, $publishtogataway){
+	public function get_api_info($apiprovider, $apiname, $apiversion){
+		// if not logged in log with the standard data
+		if(!$this->isLoggedIn){
+			$login_result = $this->login();
+			if (!$login_result){
+				return $login_result;
+			}
+		}
 
 	
-			$get_api_url = $this->api_server . $this->get_api_url;
+		$get_api_url = $this->api_server . $this->get_api_url;
 
-	$call_api_post = array('action'  => "getAPI",
-              'name' => $apiname,
-              'version' => $apiversion,
-			  'provider' => $apiprovider);
+		$call_api_post = array('action'  => "getAPI",
+								'name' => $apiname,
+								'version' => $apiversion,
+								'provider' => $apiprovider);
 
 	
-		$published_api_ret = $this->curl->post($status_api_url, 
+		$published_api_ret = $this->curl->post($get_api_url, 
 											 $call_api_post,
 											 $this->curl_options);
 		
@@ -224,9 +231,10 @@ class Wso2API{
 			$this->error_message = 'Get API info: '.$this->curl->error_string;
 		}else{
 			// have to interpret the return code to understand if the API returned error
-			$response = json_decode($published_api_ret);
-			if ($response->{'error'}){
-				$this->error_message = $response->{'message'};
+			$this->response = json_decode($published_api_ret);
+			if ($this->debug) error_log('Get all APi list response: : '.print_r($this->response, TRUE)); 
+			if ($this->response->{'error'}){
+				$this->error_message = $this->response->{'message'};
 				return false;
 			}
 		}
