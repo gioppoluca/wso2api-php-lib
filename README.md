@@ -16,7 +16,7 @@ The API mapped are:
 Here is a sample of usage
 
 ```php
-$wso2api = new Wso2API("http://10.118.8.73:9763");
+$wso2api = new Wso2API("10.118.8.73:9763");
 
 
 $create_api_post = array('name'=>'WikipediaAPI',
