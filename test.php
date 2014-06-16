@@ -17,7 +17,7 @@ echo 'Alcune informazioni di debug:';
 
 print "</pre>";
 
-$wso2api = new Wso2API ( "http://10.118.8.67:9763", $user = 'admin', $password = 'admin', $debug = true );
+$wso2api = new Wso2API ( "10.118.8.67:9763", $user = 'admin', $password = 'admin', $debug = true );
 
 switch ($_GET ["test"]) {
 	case "create" :	
